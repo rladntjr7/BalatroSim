@@ -1,0 +1,21 @@
+\title{SIMULATING EARLY-GAME STRATEGIES IN BALATRO: A COMPREHENSIVE ANALYSIS OF POPULAR STRATEGIES}
+\author{Wooseok Kim \\ ISYE 6644, Simulation, Georgia Institute of Technology}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Balatro is a poker-inspired roguelike card game that challenges players to maximize their score through strategic card play, resource management, and deck optimization. This paper presents a simulation-based analysis of various early-game strategies, focusing on the phase of the game where players operate without jokers, upgrades, or other modifiers. Drawing from both community-sourced approaches and personal gameplay experience, several strategies were formalized and implemented using a Python-based simulation model. The simulation environment was deliberately simplified to reflect the early rounds of gameplay, where decision-making around core card mechanics is most critical. Notably, many players intentionally avoid spending money in the initial rounds to build interest and preserve resources for the mid- and endgame, making this simplified model highly relevant to actual play patterns. Performance metrics were collected across multiple simulation runs, and statistical comparisons were made to evaluate the effectiveness of each strategy. Results reveal clear trends in consistency and scoring potential, offering insight into optimal early-game decision-making. This study contributes to the broader understanding of probabilistic strategy games and provides a foundation for the future, more comprehensive modeling of Balatro's complex systems.
+\end{abstract}
+
+\section{Introduction}
+\subsection{Background}
+Balatro is a modern twist on traditional poker-based card games, combining elements of deckbuilding, roguelike progression, and score maximization. Players build hands, discard cards, and strategically optimize their deck over time to reach increasingly higher scores across a series of rounds. The game has gained notable popularity among both casual players and strategy enthusiasts for its blend of randomness, strategic depth, and infamously addictive nature.
+
+The purpose of this paper is to explore and evaluate different strategic approaches to playing Balatro through simulation. After several hours of personal gameplay and engagement with online player communities, I observed a wide variety of emergent strategies—ranging from risk-heavy, combo-focused styles to more consistent, low-variance approaches. This inspired the development of a simplified simulation model to test and compare strategic outcomes in a controlled environment.
+
+The goal of this project is to implement various strategies—both community-sourced and personally developed—into a Python-based simulation and statistically analyze their performance using metrics such as average score and consistency across multiple runs. By removing human decision-making and simulating standardized play conditions, this analysis aims to uncover general trends in strategy effectiveness.
+
+\subsection{Scope of the Study}
+Due to the complexity of Balatro's full mechanics—including jokers, tarot and planet cards, deck upgrades, and other modifiers—this simulation focuses solely on a restricted version of the game. The model includes only the fundamental poker cards and excludes advanced game elements. This simplification is not only necessary due to time and resource constraints, but also intentionally aligns with how many players approach the early stages of the game. In the first few rounds, players often avoid spending money on jokers or upgrades, opting instead to conserve resources and build up interest for future rounds. In Balatro, saved money returns passive interest after each round—$1 interest per $5 saved, typically capped at $5 interest per round without special upgrades—making early financial restraint a strategic investment. As a result, strategic card play—without the influence of power-ups—is especially important in these early stages. By modeling this specific phase of the game, the simulation still captures a meaningful and widely applicable aspect of Balatro gameplay, providing insights relevant to both new and experienced players.

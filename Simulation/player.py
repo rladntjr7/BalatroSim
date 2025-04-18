@@ -9,7 +9,7 @@ class Player:
         self.deck = Deck()
         self.deck.shuffle()
         self.hand = []
-        self.handsRemaining = 4
+        self.playsRemaining = 4
         self.discardsRemaining = 4
         self.currentScore = 0
         self.win = False
@@ -58,7 +58,6 @@ class Player:
             return score
 
         def scorePair(hand):
-            score = 0
             base_score = 10
             multiplier = 2
             if len(hand) < 2: return 0
@@ -72,11 +71,9 @@ class Player:
             if highest_pair_chips == 0:
                 return 0
             
-            score = (base_score + highest_pair_chips * 2) * multiplier
-            return score
+            return (base_score + highest_pair_chips * 2) * multiplier
 
         def scoreTwoPair(hand):
-            score = 0
             base_score = 20
             multiplier = 2
             if len(hand) < 4: return 0
@@ -94,11 +91,9 @@ class Player:
             highest_pair = pairs[0]
             second_highest_pair = pairs[1]
             
-            score = (base_score + highest_pair * 2 + second_highest_pair * 2) * multiplier
-            return score
+            return (base_score + highest_pair * 2 + second_highest_pair * 2) * multiplier
             
         def scoreTriple(hand):
-            score = 0
             base_score = 30
             multiplier = 3
             if len(hand) < 3: return 0
@@ -112,11 +107,9 @@ class Player:
             if highest_triple_chips == 0:
                 return 0
             
-            score = (base_score + highest_triple_chips * 3) * multiplier
-            return score
+            return (base_score + highest_triple_chips * 3) * multiplier
 
         def scoreStraight(hand):
-            score = 0
             base_score = 30
             multiplier = 4
             if len(hand) < 5: return 0
@@ -126,75 +119,62 @@ class Player:
 
             # Check for Ace-high straight (A, K, Q, J, 10)
             ace_high_ranks = {1, 13, 12, 11, 10}
-            if ace_high_ranks.issubset(set(ranks)):
+            if ace_high_ranks == set(ranks):
                 score = base_score * multiplier
                 for rank in ace_high_ranks:
                     score += get_chips_for_rank(rank) * multiplier
                 return score
             
             # Check for other straights (5 consecutive ranks)
-            for i in range(len(ranks) - 4):
-                # Check if ranks[i] is the start of a 5-card straight
-                is_straight = True
-                straight_ranks = []
-                for j in range(5):
-                    if ranks[i] - j not in ranks:
-                        is_straight = False
-                        break
-                    straight_ranks.append(ranks[i] - j)
-                
-                if is_straight:
-                    score = base_score * multiplier
-                    for rank in straight_ranks:
-                         score += get_chips_for_rank(rank) * multiplier
-                    return score # Return score for the highest straight found
+            is_straight = True
+            straight_ranks = []
+            for i in range(5):
+                if ranks[0] - i not in ranks:
+                    is_straight = False
+                    break
+                straight_ranks.append(ranks[0] - i)
+            
+            if is_straight:
+                score = base_score * multiplier
+                for rank in straight_ranks:
+                        score += get_chips_for_rank(rank) * multiplier
+                return score # Return score for the highest straight found
 
-            return score
+            return 0
 
         def scoreFlush(hand):
-            score = 0
             base_score = 35
             multiplier = 4
             if len(hand) < 5: return 0
 
             suitCount = get_suit_counts(hand)
             for suit, count in suitCount.items():
-                if count >= 5:
+                if count == 5:
                     score = base_score * multiplier
-                    # Get the top 5 cards of the same suit for scoring
-                    flush_cards = [card for card in hand if card.suit == suit]
-                    flush_cards.sort(key=lambda x: x.chips, reverse=True)
-                    top_cards = flush_cards[:5]
-                    for card in top_cards:
+                    for card in hand:
                         score += card.chips * multiplier
-                    return score # Return score for the first flush found
-            return score
+                    return score
+            return 0
 
         def scoreFullHouse(hand):
-            score = 0
             base_score = 40
             multiplier = 4
             if len(hand) < 5: return 0
 
             cardCount = get_rank_counts(hand)
-            triple_rank = None
-            pair_rank = None
 
             # Find the highest triple
             highest_triple_chips = 0
             for rank, count in cardCount.items():
                 if count >= 3:
-                    chips = get_chips_for_rank(rank)
-                    if chips > highest_triple_chips:
-                         highest_triple_chips = chips
-                         triple_rank = rank
+                    highest_triple_chips = max(highest_triple_chips, get_chips_for_rank(rank))
             
-            if triple_rank is None: return 0
+            if highest_triple_chips == 0: return 0
 
             # Find the highest pair among the remaining cards
             highest_pair_chips = 0
             for rank, count in cardCount.items():
-                if rank != triple_rank and count >= 2:
+                if count >= 2:
                      highest_pair_chips = max(highest_pair_chips, get_chips_for_rank(rank))
 
             if highest_pair_chips == 0: return 0
@@ -202,7 +182,6 @@ class Player:
             return (base_score + highest_triple_chips * 3 + highest_pair_chips * 2) * multiplier
                     
         def scoreFourOfAKind(hand):
-            score = 0
             base_score = 60
             multiplier = 7
             if len(hand) < 4: return 0
@@ -219,26 +198,20 @@ class Player:
             return (base_score + four_chips * 4) * multiplier
 
         def scoreStraightFlush(hand):
-            score = 0
             base_score = 100
             multiplier = 8
             if len(hand) < 5: return 0
             
-            # Potential straight flush requires at least 5 cards of the same suit
             suitCount = get_suit_counts(hand)
-            potential_suits = [suit for suit, count in suitCount.items() if count >= 5]
+            if 5 not in suitCount.values(): return 0
             
-            highest_sf_score = 0
-            for suit in potential_suits:
-                suit_cards = [card for card in hand if card.suit == suit]
-                # Check if these cards form a straight
-                sf_score = scoreStraight(suit_cards) # Use scoreStraight logic on suit cards
-                if sf_score > 0: # Found a straight within the suit
-                    # Adjust score based on straight flush rules
-                    straight_chips = sum(get_chips_for_rank(card.rank) for card in suit_cards if card.rank in {r[0] for r in sf_ranks}) # Sum chips of the straight cards
-                    highest_sf_score = max(highest_sf_score, (base_score + straight_chips) * multiplier) 
-            
-            return highest_sf_score
+            sf_score = scoreStraight(hand)
+            if sf_score > 0:
+                score = base_score * multiplier
+                for card in hand:
+                    score += card.chips * multiplier
+                return score
+            return 0
 
         # Determine the best hand score from the played cards
         scores = {
@@ -254,20 +227,13 @@ class Player:
         }
 
         # Find the highest score and corresponding hand name
-        best_hand_name = "High Card" # Default if all scores are 0
-        best_score = 0
+        best_hand_name = "High Card" # Default if all other scores are 0
+        best_score = scoreHighCard(playing_hand) # Default if all other scores are 0
         # Iterate in order of hand ranking (high to low)
-        for hand_name in self.playable_hands[::-1]: # Reverse order for check
-            current_score = scores.get(hand_name, 0)
-            if current_score > 0:
-                best_hand_name = hand_name
-                best_score = current_score
-                break # Found the highest ranking hand
-        
-        # Handle case where only high card is possible
-        if best_score == 0 and scoreHighCard(playing_hand) > 0:
-             best_hand_name = "High Card"
-             best_score = scoreHighCard(playing_hand)
+        for hand, score in scores.items(): # Reverse order for check
+            if score > best_score:
+                best_hand_name = hand
+                best_score = score
 
         return best_hand_name, best_score
     
@@ -279,65 +245,65 @@ class Player:
         # Sort indices in descending order to avoid issues when removing
         indices.sort(reverse=True)
         
-        discarded_count = 0
         for index in indices:
             if 0 <= index < len(self.hand):
                 # Remove card from hand
-                self.hand.pop(index)
-                discarded_count += 1
+                self.hand[index] = self.deck.draw()
             else:
                 print(f"Warning: Invalid index {index} ignored.")
-
-        # Draw new cards only if some were discarded
-        if discarded_count > 0:
-            for _ in range(discarded_count):
-                new_card = self.deck.draw()
-                if new_card:
-                    self.hand.append(new_card)
-            self.discardsRemaining -= 1
-            return True # Indicate success
-        else:
-            print("No valid cards were discarded.")
-            return False # Indicate failure
+        
+        self.discardsRemaining -= 1
+        return True # Indicate success
     
-    def play(self, indices):
-        if self.handsRemaining <= 0:
-            print("No hands remaining.")
-            return False # Indicate failure
-        
-        # Validate indices
-        valid_indices = [i for i in indices if 0 <= i < len(self.hand)]
-        if len(valid_indices) != len(indices):
-            print("Error: One or more indices are invalid.")
+    def play(self, indices, verbose=False):
+        """Play cards from the hand to form a hand. Returns True if successful."""
+        if not indices:
             return False
-        if not valid_indices:
-             print("Error: No cards selected to play.")
-             return False
-             
-        # Sort indices descending to remove correctly
-        valid_indices.sort(reverse=True)
         
-        played_cards = []
-        for index in valid_indices:
-            played_cards.insert(0, self.hand.pop(index)) # Insert at beginning to keep order
-
-        # Draw replacements
-        for _ in range(len(played_cards)):
-            new_card = self.deck.draw()
-            if new_card:
-                self.hand.append(new_card)
-            
-        self.handsRemaining -= 1
+        # Check if we have any plays left
+        if self.playsRemaining <= 0:
+            if verbose:
+                print("No plays remaining.")
+            return False
         
-        # Score the played hand
-        played_hand_name, played_score = self.checkScore(played_cards)
-        self.history.append((played_cards, played_hand_name, played_score))
-        self.currentScore += played_score
+        # Get the cards to play
+        playing_cards = [self.hand[i] for i in indices]
         
-        print(f"Played: {played_hand_name} for {played_score} score.")
-
+        # Check the score for the played cards
+        hand_name, hand_score = self.checkScore(playing_cards)
+        
+        # Add to current score
+        self.currentScore += hand_score
+        
+        # Check for win
         if self.currentScore >= TARGET_SCORE:
             self.win = True
-            print(f"Target score {TARGET_SCORE} reached! You win!")
+            if verbose:
+                print(f"You win! Final score: {self.currentScore}")
+        
+        # Remove played cards from hand
+        indices = sorted(indices, reverse=True)
+        for i in indices:
+            self.hand.pop(i)
+        
+        # Draw new cards
+        for _ in range(len(indices)):
+            card = self.deck.draw()
+            if card:
+                self.hand.append(card)
+        
+        # Decrement plays remaining
+        self.playsRemaining -= 1
+        
+        # Add to history
+        self.history.append((playing_cards, hand_name, hand_score))
+        
+        if verbose:
+            print(f"Played {hand_name} for {hand_score} points.")
+            print(f"Total score: {self.currentScore}")
+        
+        return True
 
-        return True # Indicate success 
+    def _get_hand_info(self, cards):
+        hand_name, hand_score = self.checkScore(cards)
+        return hand_name, hand_score 

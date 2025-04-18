@@ -1,0 +1,25 @@
+simualate strategies and compare the outcomes by
+- finding the distubution of the outcomes of each strategy
+- find confidence interval that strategy A is better than strategy better
+- Use same seed for multiple strategies - The results will be correlated, how to work in this case?
+
+Strategies implemented:
+- Flush only (unless remaining cards in the deck are not sufficient to make flush with the dominant suit in hand, always discard the cards with suit not dominant in hand, if draw in hand, check deck for count of suits, if draw again, check for sum of chips for cards in hand by suit)
+- Straight only (always look for made straights, by searching for minimum number of cards that can make a straight with given hand, unless that card is not available in deck, if two or more possible combinations appear, always go for higher probability with more cards in the deck, then check the sum of chips if made)
+- Full House only (always look for made full houses, always look for cards that have higher presense in the deck+hands, then use higher number of chips)
+- Straight Flush only (always look for straight flushes, always look for minimum number of cards that can make a straight flush if available in deck)
+- Combination approach (compare the probability of made hand of the four strategies, by calcaulting the remaining cards in deck, how many cards needed, etc.)
+- Random (completely random, random to discard or play hand, random to play how many cards, 1 ~ 5 cards only)
+
+How to compare:
+- use box plot to compare between them
+
+Comparison metrics:
+- final score
+- how many hands to reach 600
+- reliability (how many percentage of random hands can win)
+
+Common random number: 
+- seed start from 1 - 1000 for each replication
+
+-Straight discard strategy was used with AI, due to hard complexity
