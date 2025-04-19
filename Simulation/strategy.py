@@ -1,80 +1,40 @@
 from player import Player
 from card import Card
-import random
 from deck import Deck
-import math
-from collections import Counter
 import itertools
 
 # Helper functions to check the deck and hand for suits and ranks for better strategy
 def checkdeckforsuits(deck: Deck) -> dict:
-    suits = {
-        "hearts": 0,
-        "diamonds": 0,
-        "clubs": 0,
-        "spades": 0
-    }
+    suits = {}
     for card in deck.cards:
-        suits[card.suit] += 1
+        suits[card.suit] = suits.get(card.suit, 0) + 1
     return suits
 
 def checkdeckforranks(deck: Deck) -> dict:
-    ranks = {
-        "1": 0,
-        "2": 0,
-        "3": 0,
-        "4": 0,
-        "5": 0,
-        "6": 0,
-        "7": 0,
-        "8": 0,
-        "9": 0,
-        "10": 0,
-        "11": 0,
-        "12": 0,
-        "13": 0
-    }
+    ranks = {}
     for card in deck.cards:
-        ranks[str(card.rank)] += 1
+        ranks[card.rank] = ranks.get(card.rank, 0) + 1
     return ranks
 
 def checkhandforsuits(hand: list[Card]) -> dict:
-    suits = {
-        "hearts": 0,
-        "diamonds": 0,
-        "clubs": 0,
-        "spades": 0
-    }
+    suits = {}
     for card in hand:
-        suits[card.suit] += 1
+        suits[card.suit] = suits.get(card.suit, 0) + 1
     return suits
 
 def checkhandforranks(hand: list[Card]) -> dict:
-    ranks = {
-        "1": 0,
-        "2": 0,
-        "3": 0,
-        "4": 0,
-        "5": 0,
-        "6": 0,
-        "7": 0,
-        "8": 0,
-        "9": 0,
-        "10": 0,
-        "11": 0,
-        "12": 0,
-        "13": 0
-    }
+    ranks = {}
     for card in hand:
-        ranks[str(card.rank)] += 1
+        ranks[card.rank] = ranks.get(card.rank, 0) + 1
     return ranks
 
 # Base class for all card selection strategies
 class Strategy:
-    def __init__(self, name, verbose=False):
+    def __init__(self, name, target_hand=None, verbose=False):
         self.name = name
         self.history = []
         self.verbose = verbose
+        self.target_hand = target_hand
     
     def select_play_cards(self, player):
         """
@@ -108,34 +68,10 @@ class Strategy:
                                 best_indices = [i, j, k, l, m]
         return best_indices
 
-class RandomStrategy(Strategy):
-    """Randomly selects cards to play or discard"""
-    def __init__(self):
-        super().__init__("Random")
-    
-    def select_play_cards(self, player):
-        # Play 1-5 random cards
-        hand_size = len(player.hand)
-        if hand_size == 0:
-            return []
-        
-        num_cards = random.randint(1, min(5, hand_size))
-        return random.sample(range(hand_size), num_cards)
-    
-    def select_discard_cards(self, player):
-        # Discard 1-5 random cards
-        hand_size = len(player.hand)
-        if hand_size == 0:
-            return []
-        
-        num_cards = random.randint(1, min(5, hand_size))
-        return random.sample(range(hand_size), num_cards)
-
-
 class FlushStrategy(Strategy):
     """Prioritizes flush hands"""
     def __init__(self):
-        super().__init__("Flush")
+        super().__init__("Flush", ["Flush", "Straight Flush"])
     
     def select_play_cards(self, player):
         # Get suits in hand
@@ -174,13 +110,13 @@ class FlushStrategy(Strategy):
             suits_to_consider = [suit for suit, count in ordered_suits if count == counts[0]]
             # Check the deck for the suit with the least cards
             deck_suits = checkdeckforsuits(player.deck)
-            deckcounts = [(suit, deck_suits[suit]) for suit in suits_to_consider]
+            deckcounts = [(suit, deck_suits.get(suit, 0)) for suit in suits_to_consider]
             deckcounts.sort(key=lambda x: x[1], reverse=True) # sorts by most cards in deck
             suit_to_keep = deckcounts[0][0] # keep the suit with the most cards in the deck
         else:
             suit_maybe_keep = ordered_suits[0][0] 
             deck_suits = checkdeckforsuits(player.deck)
-            if deck_suits[suit_maybe_keep] + suits[suit_maybe_keep] >= 5:
+            if deck_suits.get(suit_maybe_keep, 0) + suits.get(suit_maybe_keep, 0) >= 5:
                 suit_to_keep = suit_maybe_keep
             else:
                 suit_to_keep =  ordered_suits[1][0]
@@ -194,7 +130,7 @@ class FlushStrategy(Strategy):
 class StraightStrategy(Strategy):
     """Prioritizes straight hands"""
     def __init__(self):
-        super().__init__("Straight")
+        super().__init__("Straight", ["Straight", "Straight Flush"])
     
     def select_play_cards(self, player):
         # Get all ranks in hand
@@ -223,7 +159,7 @@ class StraightStrategy(Strategy):
         for i in range(len(ranks) - 4):
             is_straight = True
             for j in range(i+1, i+5):
-                if ranks[j] != ranks[j-1] + 1:
+                if ranks[j] != ranks[j-1] - 1:
                     is_straight = False
                     break
             if is_straight:
@@ -231,10 +167,14 @@ class StraightStrategy(Strategy):
         
         if player.discardsRemaining == 0 and player.playsRemaining > 1:
             return self.select_discard_cards(player)
-        else:
+        elif player.playsRemaining == 1:
             return self._fallback_strategy(player)
     
     def select_discard_cards(self, player):
+        # If hand is empty, return empty list
+        if not player.hand:
+            return []
+            
         # Define straight windows using rank numbers (1=Ace, 2-10, 11=Jack, 12=Queen, 13=King)
         STRAIGHT_WINDOWS = [
             [1, 2, 3, 4, 5],    # A-5 straight
@@ -249,124 +189,126 @@ class StraightStrategy(Strategy):
             [10, 11, 12, 13, 1], # 10-A straight
         ]
         
-        # Convert hand to list of tuples (rank, index)
-        hand_with_indices = [(card.rank, i) for i, card in enumerate(player.hand)]
+        deck_ranks = checkdeckforranks(player.deck) # {1: a, 2: b, 3: c, ...} rank: count
+
+        def straight_probability(hold_hands, deck_ranks, d, verbose=False):
+            # hold_hands will be list of cards less than size of 5
+            if verbose:
+                print("calculating probability of straight\nhand:", ", ".join([str(card) for card in hold_hands]), "\ndiscard:", d)
+            # calculate probability of straight
+            deck_size = sum(deck_ranks.values())
+
+            # Get the ranks actually in hand
+            hand_ranks = set(checkhandforranks(hold_hands).keys())
+            
+            # We'll calculate the probability for each possible straight window
+            total_probability = 0.0
+            
+            for window in STRAIGHT_WINDOWS:
+                # Check how many cards are needed and calculate probability of straight        
+                cards_needed = set(window) - hand_ranks
+                
+                # Check if all needed cards exist in the deck
+                in_deck = True
+                for card in cards_needed:
+                    if deck_ranks.get(card, 0) == 0:
+                        in_deck = False
+                        break
+                    
+                if not in_deck or len(cards_needed) > d:
+                    continue  # Impossible to make this straight
+                
+                # Calculate the multivariate hypergeometric probability
+                # P(success) = [∏ C(Ki, ki)] / C(N, n)
+                # Where:
+                # - Ki is the number of each needed card in the deck
+                # - ki is how many of each card we need (1 per rank for straights)
+                # - N is the deck size
+                # - n is the number of cards drawn (d)
+                
+                # Numerator: product of ways to choose each needed card
+                numerator = 1.0
+                for card in cards_needed:
+                    numerator *= deck_ranks.get(card, 0)
+                
+                # Denominator: ways to choose d cards from deck_size
+                denominator = 1.0
+                for i in range(0, d):
+                    denominator *= (deck_size - i)
+                    
+                # Adjust for cards we don't need but will draw
+                remaining_draws = d - len(cards_needed)
+                if remaining_draws > 0:
+                    remaining_cards = deck_size - sum(deck_ranks.get(card, 0) for card in cards_needed)
+                    
+                    # Calculate combinations for remaining cards
+                    for i in range(1, remaining_draws + 1):
+                        numerator *= (remaining_cards - (i - 1))
+                
+                # Calculate probability for this window
+                if denominator > 0:
+                    window_probability = numerator / denominator
+                    total_probability += window_probability
+                    
+            # Cap at 1.0 since we may double-count some successful outcomes
+            total_probability = min(1.0, total_probability)
+            if verbose:
+                print("total probability of straight:", total_probability)
+            return total_probability
+
         
-        # Get list of ranks in the hand
-        hand_ranks = [card.rank for card in player.hand]
-        
-        # Get list of ranks in the deck
-        deck_ranks = [card.rank for card in player.deck.cards]
         
         # Find the best cards to hold for a straight
         best_probability = 0.0
-        best_discard = []
+        best_hold = None
         
-        # Count ranks in hand and deck
-        hand_rank_counts = Counter(hand_ranks)
-        deck_rank_counts = Counter(deck_ranks)
-        
-        # Number of cards in hand and deck
+        # Number of cards in hand
         H = len(player.hand)
-        N = len(player.deck.cards)
         
-        # Iterate over possible discard counts
-        for d in range(1, min(max_discard, H) + 1):
-            # For each way to hold H-d cards
-            for hold_indices in itertools.combinations(range(H), H-d):
-                hold = [player.hand[i] for i in hold_indices]
-                hold_ranks = [card.rank for card in hold]
-                
-                # Determine probability for best straight window
-                best_for_hold = 0.0
-                for window in STRAIGHT_WINDOWS:
-                    # Count ranks held in this window
-                    held_ranks = {rank for rank in hold_ranks if rank in window}
-                    m = len(window) - len(held_ranks)  # missing ranks
-                    
-                    if m > d:
-                        continue  # cannot complete this straight
-                    
-                    # Count good cards in deck
-                    G = sum(
-                        min(deck_rank_counts[r], 1)  # We only need one of each rank
-                        for r in window
-                        if r not in held_ranks
-                    )
-                    
-                    # If not enough good cards or deck too small
-                    if G < m or N < d:
-                        continue
-                    
-                    # Hypergeometric probability calculation
-                    # P = C(G, m) * C(N-G, d-m) / C(N, d)
-                    try:
-                        numer = math.comb(G, m) * math.comb(N - G, d - m)
-                        denom = math.comb(N, d)
-                        P = numer / denom
-                    except (ValueError, ZeroDivisionError):
-                        P = 0
-                    
-                    if P > best_for_hold:
-                        best_for_hold = P
-                
-                # Update global best
-                if best_for_hold > best_probability:
-                    best_probability = best_for_hold
-                    discard_indices = [i for i in range(H) if i not in hold_indices]
-                    best_discard = discard_indices
+        # Iterate over combination of cards to hold
+        for d in range(4, 5 + 1):  # discard 4-5 cards, hold hands must not be bigger than 5, since then the hand will already be a straight
+            for hold_indices in itertools.combinations(range(H), H-d): # iterating over all possible combinations
+                hold_hands = [player.hand[i] for i in hold_indices] # [card1, card2, card3, ...]
+                hand_prob = straight_probability(hold_hands, deck_ranks, d, verbose=self.verbose)
+                if hand_prob > best_probability:
+                    best_probability = hand_prob
+                    best_hold = hold_indices
         
-        # If no good discard strategy found, use the original heuristic approach
-        if not best_discard:
-            ranks = [card.rank for card in player.hand]
-            discard_indices = []
-            
-            for i, card in enumerate(player.hand):
-                # Check if this card contributes to any potential straight
-                contributes_to_straight = False
-                for r in range(card.rank - 4, card.rank + 5):
-                    if r <= 0 or r > 13:
-                        continue
-                    if ranks.count(r) > 0 and ranks.count(r+1) > 0 and ranks.count(r+2) > 0:
-                        contributes_to_straight = True
-                        break
-                
-                if not contributes_to_straight:
-                    discard_indices.append(i)
-                    if len(discard_indices) >= max_discard:  # Limit to max_discard
-                        break
-            
-            best_discard = discard_indices
-        
-        return best_discard
+        # If no good hold was found, use a fallback strategy
+        if best_hold is None:
+            return self._fallback_strategy(player)
+        # Otherwise, return the indices to discard based on best hold
+        if self.verbose:
+            print("best hold:", (", ".join([str(player.hand[i]) for i in best_hold])))
+        cards_to_discard = [i for i in range(H) if i not in best_hold]
+        return cards_to_discard
 
-
-class FullHouseStrategy(Strategy):
+class FullHouse4CardsStrategy(Strategy):
     """Prioritizes full house hands"""
     def __init__(self):
-        super().__init__("Full House")
+        super().__init__("Full House 4 Cards", ["Full House", "Four of a Kind"])
     
     def select_play_cards(self, player):
-        ranks = {}
-        for i, card in enumerate(player.hand):
-            if card.rank not in ranks:
-                ranks[card.rank] = []
-            ranks[card.rank].append(i)
-        
+        ranks = checkhandforranks(player.hand)
         # Find ranks with 3+ and 2+ cards
+        four_of_a_kind = None
         three_of_a_kind = None
         pair = None
         
-        # First look for three of a kind
-        for rank, indices in ranks.items():
-            if len(indices) >= 3 and (three_of_a_kind is None or rank > three_of_a_kind[0]):
-                three_of_a_kind = (rank, indices)
+        # If we have 4 of a kind, play them
+        for rank, count in ranks.items():
+            if count >= 4 and (four_of_a_kind is None or rank > four_of_a_kind):
+                return [i for i, card in enumerate(player.hand) if card.rank == rank][:4]
         
+        # First look for three of a kind
+        for rank, count in ranks.items():
+            if count >= 3 and (three_of_a_kind is None or rank > three_of_a_kind):
+                three_of_a_kind = rank
         # Then look for a pair different from the three of a kind
         if three_of_a_kind:
-            for rank, indices in ranks.items():
-                if rank != three_of_a_kind[0] and len(indices) >= 2 and (pair is None or rank > pair[0]):
-                    pair = (rank, indices)
+            for rank, count in ranks.items():
+                if rank != three_of_a_kind and count >= 2 and (pair is None or rank > pair):
+                    pair = rank
         
         # Check if we have a full house
         has_fullhouse = three_of_a_kind and pair
@@ -377,368 +319,105 @@ class FullHouseStrategy(Strategy):
         
         # If we have both components of a full house, play them
         if has_fullhouse:
-            return three_of_a_kind[1][:3] + pair[1][:2]
+            return [i for i, card in enumerate(player.hand) if card.rank == three_of_a_kind][:3] + [i for i, card in enumerate(player.hand) if card.rank == pair][:2]
         
         # If we have only three of a kind, play that
         if three_of_a_kind:
-            return three_of_a_kind[1][:3]
+            return [i for i, card in enumerate(player.hand) if card.rank == three_of_a_kind][:3]
         
         # If we have only a pair, play that
         if pair:
-            return pair[1][:2]
+            return [i for i, card in enumerate(player.hand) if card.rank == pair][:2]
         
         # Fallback strategy
         return self._fallback_strategy(player)
     
     def select_discard_cards(self, player):
-        ranks = {}
-        for i, card in enumerate(player.hand):
-            if card.rank not in ranks:
-                ranks[card.rank] = []
-            ranks[card.rank].append(i)
+        ranks = checkhandforranks(player.hand)
+        deck_ranks = checkdeckforranks(player.deck)
         
-        # Keep ranks that have multiple cards
-        discard_indices = []
-        for i, card in enumerate(player.hand):
-            if len(ranks[card.rank]) == 1:  # No other cards with this rank
-                discard_indices.append(i)
-                if len(discard_indices) >= 3:  # Limit to 3 discards
-                    break
+        # Find three of a kind and pairs
+        three_of_a_kind = None
+        pairs = []
         
-        return discard_indices
-
-class HybridStrategy(Strategy):
-    """Combination approach that evaluates the probability of each strategy and picks the best one"""
-    def __init__(self):
-        super().__init__("Hybrid")
-        # Create instances of all the strategies we can use
-        self.flush_strategy = FlushStrategy()
-        self.straight_strategy = StraightStrategy()
-        self.fullhouse_strategy = FullHouseStrategy()
-        self.straightflush_strategy = StraightFlushStrategy()
-    
-    def select_play_cards(self, player):
-        # Calculate potential for each hand type
-        flush_potential = self._evaluate_flush_potential(player)
-        straight_potential = self._evaluate_straight_potential(player)
-        fullhouse_potential = self._evaluate_fullhouse_potential(player)
-        straightflush_potential = self._evaluate_straightflush_potential(player)
-        
-        # Determine the best strategy based on the highest potential
-        potentials = {
-            'Straight Flush': straightflush_potential,
-            'Full House': fullhouse_potential,
-            'Flush': flush_potential,
-            'Straight': straight_potential
-        }
-        
-        best_strategy = max(potentials.items(), key=lambda x: x[1])
-        best_potential = best_strategy[1]
-        
-        # If no discards remain, hands remaining, and no good potential for any hand, use play as discard
-        if player.discardsRemaining == 0 and player.playsRemaining > 1 and best_potential < 0.3:
-            return self.select_discard_cards(player)
-        
-        # Use the appropriate strategy based on the highest potential
-        if best_strategy[0] == 'Straight Flush' and best_strategy[1] > 0.3:
-            return self.straightflush_strategy.select_play_cards(player)
-        elif best_strategy[0] == 'Full House' and best_strategy[1] > 0.3:
-            return self.fullhouse_strategy.select_play_cards(player)
-        elif best_strategy[0] == 'Flush' and best_strategy[1] > 0.3:
-            return self.flush_strategy.select_play_cards(player)
-        elif best_strategy[0] == 'Straight' and best_strategy[1] > 0.3:
-            return self.straight_strategy.select_play_cards(player)
-        
-        # If no strategy has good potential, play the highest value cards
-        cards_with_value = [(i, card.chips) for i, card in enumerate(player.hand)]
-        cards_with_value.sort(key=lambda x: x[1], reverse=True)
-        return [i for i, _ in cards_with_value[:min(5, len(cards_with_value))]]
-    
-    def select_discard_cards(self, player):
-        # Calculate potential for each hand type
-        flush_potential = self._evaluate_flush_potential(player)
-        straight_potential = self._evaluate_straight_potential(player)
-        fullhouse_potential = self._evaluate_fullhouse_potential(player)
-        straightflush_potential = self._evaluate_straightflush_potential(player)
-        
-        # Determine the best strategy based on the highest potential
-        potentials = {
-            'Straight Flush': straightflush_potential,
-            'Full House': fullhouse_potential,
-            'Flush': flush_potential,
-            'Straight': straight_potential
-        }
-        
-        best_strategy = max(potentials.items(), key=lambda x: x[1])
-        
-        # Use the appropriate strategy for discarding
-        if best_strategy[0] == 'Straight Flush' and best_strategy[1] > 0.2:
-            return self.straightflush_strategy.select_discard_cards(player)
-        elif best_strategy[0] == 'Full House' and best_strategy[1] > 0.2:
-            return self.fullhouse_strategy.select_discard_cards(player)
-        elif best_strategy[0] == 'Flush' and best_strategy[1] > 0.2:
-            return self.flush_strategy.select_discard_cards(player)
-        elif best_strategy[0] == 'Straight' and best_strategy[1] > 0.2:
-            return self.straight_strategy.select_discard_cards(player)
-        
-        # If no strategy has good potential, discard the lowest value cards
-        cards_with_value = [(i, card.chips) for i, card in enumerate(player.hand)]
-        cards_with_value.sort(key=lambda x: x[1])  # Sort by ascending value
-        return [i for i, _ in cards_with_value[:min(3, len(cards_with_value))]]
-    
-    def _evaluate_flush_potential(self, player):
-        """Evaluates the potential of making a flush hand"""
-        # Count cards by suit in hand
-        suit_counts = {}
-        for card in player.hand:
-            if card.suit not in suit_counts:
-                suit_counts[card.suit] = 0
-            suit_counts[card.suit] += 1
-        
-        if not suit_counts:
-            return 0.0
-        
-        # Find the suit with the most cards
-        best_suit, best_count = max(suit_counts.items(), key=lambda x: x[1])
-        
-        # Check how many more cards we need for a flush
-        cards_needed = max(0, 5 - best_count)
-        
-        # Count how many cards of that suit remain in the deck
-        remaining_cards = 13 - best_count  # 13 cards per suit in a standard deck
-        
-        # Estimate probability based on cards remaining and cards needed
-        if cards_needed == 0:
-            return 1.0  # We already have a flush
-        elif remaining_cards < cards_needed:
-            return 0.0  # Impossible to get a flush
-        else:
-            # Simple probability estimate
-            return min(1.0, remaining_cards / (cards_needed * 2))
-    
-    def _evaluate_straight_potential(self, player):
-        """Evaluates the potential of making a straight hand"""
-        # Get all ranks in hand
-        ranks = sorted([card.rank for card in player.hand])
-        
-        if not ranks:
-            return 0.0
-        
-        # Count consecutive sequences
-        max_consecutive = 1
-        current_consecutive = 1
-        
-        for i in range(1, len(ranks)):
-            if ranks[i] == ranks[i-1] + 1:
-                current_consecutive += 1
-                max_consecutive = max(max_consecutive, current_consecutive)
-            elif ranks[i] == ranks[i-1]:
-                # Same rank, continue
-                continue
-            else:
-                current_consecutive = 1
-        
-        # Check for potential gaps that can be filled
-        unique_ranks = sorted(list(set(ranks)))
-        gaps = 0
-        
-        # Count small gaps (1 card) in the sequence
-        for i in range(len(unique_ranks) - 1):
-            if unique_ranks[i+1] - unique_ranks[i] == 2:  # Gap of 1 card
-                gaps += 1
-        
-        # Calculate how many cards we need for a straight
-        cards_needed = max(0, 5 - max_consecutive - gaps)
-        
-        # Estimate probability
-        if cards_needed == 0:
-            return 1.0  # We already have a straight
-        elif cards_needed > 2:  # Need too many cards, low probability
-            return 0.1
-        else:
-            # Simple probability estimate
-            return min(1.0, (13 - len(unique_ranks)) / (cards_needed * 4))
-    
-    def _evaluate_fullhouse_potential(self, player):
-        """Evaluates the potential of making a full house"""
-        # Count cards by rank
-        rank_counts = {}
-        for card in player.hand:
-            if card.rank not in rank_counts:
-                rank_counts[card.rank] = 0
-            rank_counts[card.rank] += 1
-        
-        if not rank_counts:
-            return 0.0
-        
-        # Check if we already have three of a kind
-        has_three = any(count >= 3 for count in rank_counts.values())
-        # Check if we have at least one pair
-        pairs = sum(1 for count in rank_counts.values() if count >= 2)
-        
-        if has_three and pairs >= 2:
-            return 1.0  # We already have a full house
-        elif has_three and pairs == 1:
-            # We have three of a kind and need one more pair
-            return 0.7
-        elif has_three:
-            # We have three of a kind but no pairs yet
-            return 0.5
-        elif pairs >= 2:
-            # We have two pairs, need to upgrade one to three of a kind
-            return 0.4
-        elif pairs == 1:
-            # We have one pair, harder to make a full house
-            return 0.2
-        else:
-            # No pairs or three of a kind yet
-            return 0.1
-    
-    def _evaluate_straightflush_potential(self, player):
-        """Evaluates the potential of making a straight flush"""
-        # Group cards by suit
-        suits = {}
-        for card in player.hand:
-            if card.suit not in suits:
-                suits[card.suit] = []
-            suits[card.suit].append(card)
-        
-        if not suits:
-            return 0.0
-        
-        # For each suit with enough cards, evaluate straight potential
-        best_potential = 0.0
-        
-        for suit, cards in suits.items():
-            if len(cards) < 3:  # Need at least 3 cards of the same suit to be worth considering
-                continue
-                
-            # Calculate straight potential within this suit
-            ranks = sorted([card.rank for card in cards])
-            
-            # Count consecutive sequences
-            max_consecutive = 1
-            current_consecutive = 1
-            
-            for i in range(1, len(ranks)):
-                if ranks[i] == ranks[i-1] + 1:
-                    current_consecutive += 1
-                    max_consecutive = max(max_consecutive, current_consecutive)
-                elif ranks[i] == ranks[i-1]:
-                    continue
-                else:
-                    current_consecutive = 1
-            
-            # Check for potential gaps that can be filled
-            unique_ranks = sorted(list(set(ranks)))
-            gaps = 0
-            
-            # Count small gaps (1 card) in the sequence
-            for i in range(len(unique_ranks) - 1):
-                if unique_ranks[i+1] - unique_ranks[i] == 2:  # Gap of 1 card
-                    gaps += 1
-            
-            # Calculate potential for this suit
-            cards_needed = max(0, 5 - max_consecutive - gaps)
-            
-            if cards_needed == 0:
-                suit_potential = 1.0  # We already have a straight flush
-            elif cards_needed > 2:  # Need too many cards, low probability
-                suit_potential = 0.05
-            else:
-                # More conservative probability for straight flush
-                suit_potential = min(0.7, (13 - len(unique_ranks)) / (cards_needed * 8))
-            
-            best_potential = max(best_potential, suit_potential)
-        
-        return best_potential
-
-
-class StraightFlushStrategy(Strategy):
-    """Prioritizes straight flush hands"""
-    def __init__(self):
-        super().__init__("Straight Flush")
-    
-    def select_play_cards(self, player):
-        # First, group cards by suit
-        suits = {}
-        for i, card in enumerate(player.hand):
-            if card.suit not in suits:
-                suits[card.suit] = []
-            suits[card.suit].append((i, card))
-        
-        # Look for potential straight flushes
-        has_straightflush = False
-        straightflush_indices = []
-        
-        # Look for potential straight flushes by examining each suit group
-        for suit, cards in suits.items():
-            if len(cards) >= 5:  # Need at least 5 cards of the same suit
-                # Sort cards by rank
-                cards.sort(key=lambda x: x[1].rank)
-                
-                # Try to find 5 consecutive cards
-                for i in range(len(cards) - 4):
-                    consecutive = [cards[i]]
-                    for j in range(i+1, len(cards)):
-                        if cards[j][1].rank == consecutive[-1][1].rank + 1:
-                            consecutive.append(cards[j])
-                            if len(consecutive) >= 5:
-                                # Found a straight flush!
-                                has_straightflush = True
-                                straightflush_indices = [card[0] for card in consecutive[:5]]
-                                break
-                        elif cards[j][1].rank > consecutive[-1][1].rank + 1:
-                            break
-                    
-                    if has_straightflush:
-                        break
-                
-                # Check for Ace-low straight flush (A, 2, 3, 4, 5)
-                if not has_straightflush:
-                    has_ace = any(card[1].rank == 1 for card in cards)
-                    has_2_to_5 = all(any(card[1].rank == r for card in cards) for r in range(2, 6))
-                    
-                    if has_ace and has_2_to_5:
-                        has_straightflush = True
-                        ace_idx = next(card[0] for card in cards if card[1].rank == 1)
-                        low_cards = [card[0] for card in cards if 2 <= card[1].rank <= 5]
-                        straightflush_indices = [ace_idx] + low_cards
-            
-            if has_straightflush:
+        # First look for three of a kind
+        for rank, count in ranks.items():
+            if count >= 3:
+                three_of_a_kind = rank
                 break
         
-        # If no discards remain and we don't have a straight flush, use play as discard
-        if player.discardsRemaining == 0 and player.playsRemaining > 1 and not has_straightflush:
-            return self.select_discard_cards(player)
+        # Then look for pairs
+        for rank, count in ranks.items():
+            if count >= 2 and rank != three_of_a_kind:
+                pairs.append(rank)
         
-        # If found a straight flush, play it
-        if has_straightflush:
-            return straightflush_indices
-        
-        # If no straight flush found, try for a flush or straight
-        return self._fallback_strategy(player)
-    
-    def select_discard_cards(self, player):
-        # Count cards by suit
-        suit_counts = {}
-        for card in player.hand:
-            if card.suit not in suit_counts:
-                suit_counts[card.suit] = 0
-            suit_counts[card.suit] += 1
-        
-        # Find the suit with the most cards
-        if not suit_counts:
-            return []
+        # Case 1: We have a three of a kind
+        if three_of_a_kind:
+            # Find the card with the highest count in the deck among remaining cards
+            possible_pair_ranks = []
+            most_copies = 0
+            for rank, count in ranks.items():
+                if rank != three_of_a_kind and deck_ranks.get(rank, 0) > most_copies:
+                    possible_pair_ranks = [rank]
+                    most_copies = deck_ranks.get(rank, 0)
+                elif rank != three_of_a_kind and deck_ranks.get(rank, 0) == most_copies:
+                    possible_pair_ranks.append(rank)
             
-        best_suit = max(suit_counts.items(), key=lambda x: x[1])[0]
+            # Get the highest rank among those with the most copies
+            best_rank = max(possible_pair_ranks)
+            
+            # Keep the three of a kind and the best potential pair card
+            return [i for i, card in enumerate(player.hand) 
+                   if card.rank != three_of_a_kind and card.rank != best_rank]
         
-        # Identify cards to discard (not in the dominant suit)
-        discard_indices = []
-        for i, card in enumerate(player.hand):
-            if card.suit != best_suit:
-                discard_indices.append(i)
-                if len(discard_indices) >= 3:  # Limit to 3 discards
-                    break
+        # Case 2: We have two or more pairs
+        elif len(pairs) >= 2:
+            # Sort pairs by the number of copies in the deck (descending)
+            pairs_with_counts = [(rank, deck_ranks.get(rank, 0)) for rank in pairs]
+            pairs_with_counts.sort(key=lambda x: (x[1], x[0]), reverse=True)
+            
+            # Keep the two best pairs
+            pairs_to_keep = [pair[0] for pair in pairs_with_counts[:2]]
+            
+            # Discard cards that aren't in the two best pairs
+            return [i for i, card in enumerate(player.hand) 
+                   if card.rank not in pairs_to_keep]
         
-        return discard_indices
+        # Case 3: We have one pair
+        elif len(pairs) == 1:
+            pair_rank = pairs[0]
+            
+            # For remaining cards, find the one with the most copies in the deck
+            remaining_cards = []
+            for rank, count in ranks.items():
+                if rank != pair_rank:
+                    remaining_cards.append((rank, deck_ranks.get(rank, 0)))
+            
+            # Sort by count in deck (descending), then by rank (descending) for ties
+            remaining_cards.sort(key=lambda x: (x[1], x[0]), reverse=True)
+            
+            # Keep the pair and the best remaining card
+            ranks_to_keep = [pair_rank]
+            if remaining_cards:
+                ranks_to_keep.append(remaining_cards[0][0])
+            
+            # Discard cards that aren't in ranks_to_keep
+            return [i for i, card in enumerate(player.hand) 
+                   if card.rank not in ranks_to_keep]
+        
+        # Case 4: No pairs or three of a kind
+        else:
+            # For each card, count how many of the same rank are in the deck
+            cards_with_deck_counts = [(rank, deck_ranks.get(rank, 0)) for rank in ranks.keys()]
+            
+            # Sort by count in deck (descending), then by rank (descending) for ties
+            cards_with_deck_counts.sort(key=lambda x: (x[1], x[0]), reverse=True)
+            
+            # Keep the two cards with highest counts in the deck
+            ranks_to_keep = [card[0] for card in cards_with_deck_counts[:2]]
+            
+            # Discard cards that aren't in ranks_to_keep
+            return [i for i, card in enumerate(player.hand) 
+                   if card.rank not in ranks_to_keep]
+        
+        

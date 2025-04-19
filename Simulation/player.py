@@ -12,10 +12,10 @@ class Player:
         self.playsRemaining = 4
         self.discardsRemaining = 4
         self.currentScore = 0
-        self.win = False
+        self.remainingPlaysToWin = 0
         self.playable_hands = ["High Card", "Pair", "Two Pair", "Triple", "Straight", "Flush", "Full House", "Four of a Kind", "Straight Flush"]
         self.history = [] # Stores tuples of (played_cards, played_hand_name, score)
-
+        self.target_hand = strategy.target_hand
         for i in range(8):
             card = self.deck.draw()
             if card: # Check if draw was successful
@@ -164,20 +164,24 @@ class Player:
             cardCount = get_rank_counts(hand)
 
             # Find the highest triple
+            triple_rank = None
             highest_triple_chips = 0
             for rank, count in cardCount.items():
-                if count >= 3:
-                    highest_triple_chips = max(highest_triple_chips, get_chips_for_rank(rank))
+                if count >= 3 and (triple_rank is None or get_chips_for_rank(rank) > highest_triple_chips):
+                    triple_rank = rank
+                    highest_triple_chips = get_chips_for_rank(rank)
             
-            if highest_triple_chips == 0: return 0
+            if triple_rank is None: return 0
 
-            # Find the highest pair among the remaining cards
+            # Find the highest pair among ranks that aren't the triple
+            pair_rank = None
             highest_pair_chips = 0
             for rank, count in cardCount.items():
-                if count >= 2:
-                     highest_pair_chips = max(highest_pair_chips, get_chips_for_rank(rank))
+                if rank != triple_rank and count >= 2 and (pair_rank is None or get_chips_for_rank(rank) > highest_pair_chips):
+                    pair_rank = rank
+                    highest_pair_chips = get_chips_for_rank(rank)
 
-            if highest_pair_chips == 0: return 0
+            if pair_rank is None: return 0
                             
             return (base_score + highest_triple_chips * 3 + highest_pair_chips * 2) * multiplier
                     
@@ -266,6 +270,8 @@ class Player:
                 print("No plays remaining.")
             return False
         
+        self.playsRemaining -= 1
+        
         # Get the cards to play
         playing_cards = [self.hand[i] for i in indices]
         
@@ -275,11 +281,12 @@ class Player:
         # Add to current score
         self.currentScore += hand_score
         
-        # Check for win
-        if self.currentScore >= TARGET_SCORE:
-            self.win = True
-            if verbose:
-                print(f"You win! Final score: {self.currentScore}")
+        # Check for win if not already won
+        if self.remainingPlaysToWin == 0:
+            if self.currentScore >= TARGET_SCORE:
+                self.remainingPlaysToWin = self.playsRemaining
+                if verbose:
+                    print(f"Won with {self.remainingPlaysToWin} plays remaining with {self.currentScore} points.")
         
         # Remove played cards from hand
         indices = sorted(indices, reverse=True)
@@ -292,11 +299,8 @@ class Player:
             if card:
                 self.hand.append(card)
         
-        # Decrement plays remaining
-        self.playsRemaining -= 1
-        
         # Add to history
-        self.history.append((playing_cards, hand_name, hand_score))
+        self.history.append(([str(card) for card in playing_cards], hand_name, hand_score))
         
         if verbose:
             print(f"Played {hand_name} for {hand_score} points.")
