@@ -191,10 +191,10 @@ class StraightStrategy(Strategy):
         
         deck_ranks = checkdeckforranks(player.deck) # {1: a, 2: b, 3: c, ...} rank: count
 
-        def straight_probability(hold_hands, deck_ranks, d, verbose=False):
+        def straight_probability(hold_hands, deck_ranks, d, verbose):
             # hold_hands will be list of cards less than size of 5
-            if verbose:
-                print("calculating probability of straight\nhand:", ", ".join([str(card) for card in hold_hands]), "\ndiscard:", d)
+            # if verbose:
+            # print("calculating probability of straight with hand:", ", ".join([str(card) for card in hold_hands]), "\n")
             # calculate probability of straight
             deck_size = sum(deck_ranks.values())
 
@@ -205,7 +205,8 @@ class StraightStrategy(Strategy):
             total_probability = 0.0
             
             for window in STRAIGHT_WINDOWS:
-                # Check how many cards are needed and calculate probability of straight        
+                # Check how many cards are needed and calculate probability of straight   
+                # print("window:", window)     
                 cards_needed = set(window) - hand_ranks
                 
                 # Check if all needed cards exist in the deck
@@ -216,6 +217,7 @@ class StraightStrategy(Strategy):
                         break
                     
                 if not in_deck or len(cards_needed) > d:
+                    # print("this window is impossible to make a straight with the current hand and deck\n")
                     continue  # Impossible to make this straight
                 
                 # Calculate the multivariate hypergeometric probability
@@ -248,12 +250,15 @@ class StraightStrategy(Strategy):
                 # Calculate probability for this window
                 if denominator > 0:
                     window_probability = numerator / denominator
+                    # print("probability of straight with window:", window, "is:", "{:.5f}".format(window_probability), "\n")
                     total_probability += window_probability
+                # else:
+                    # print("this window is impossible to make a straight with the current hand and deck\n")
                     
             # Cap at 1.0 since we may double-count some successful outcomes
             total_probability = min(1.0, total_probability)
-            if verbose:
-                print("total probability of straight:", total_probability)
+            # if verbose:
+            # print("total probability of straight:", "{:.5f}".format(total_probability), "\n")
             return total_probability
 
         
@@ -278,8 +283,8 @@ class StraightStrategy(Strategy):
         if best_hold is None:
             return self._fallback_strategy(player)
         # Otherwise, return the indices to discard based on best hold
-        if self.verbose:
-            print("best hold:", (", ".join([str(player.hand[i]) for i in best_hold])))
+        # if self.verbose:
+        #     # print("best hold:", (", ".join([str(player.hand[i]) for i in best_hold])))
         cards_to_discard = [i for i in range(H) if i not in best_hold]
         return cards_to_discard
 
