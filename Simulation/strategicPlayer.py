@@ -98,8 +98,7 @@ class StrategicPlayer(Player):
         return {
             "score": self.currentScore,
             "remainingPlaysToWin": self.remainingPlaysToWin,
-            "history": self.history,
-            "strategy": self.strategy.name
+            "history": self.history
         }
     
     def simulate_games(self, num_games=100, verbose=False):

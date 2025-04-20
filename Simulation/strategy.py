@@ -71,7 +71,7 @@ class Strategy:
 class FlushStrategy(Strategy):
     """Prioritizes flush hands"""
     def __init__(self):
-        super().__init__("Flush", ["Flush", "Straight Flush"])
+        super().__init__("Flush", ["Straight", "Straight Flush", "Flush", "Full House", "Four of a Kind"])
     
     def select_play_cards(self, player):
         # Get suits in hand
@@ -130,7 +130,7 @@ class FlushStrategy(Strategy):
 class StraightStrategy(Strategy):
     """Prioritizes straight hands"""
     def __init__(self):
-        super().__init__("Straight", ["Straight", "Straight Flush"])
+        super().__init__("Straight", ["Straight", "Straight Flush", "Flush", "Full House", "Four of a Kind"])
     
     def select_play_cards(self, player):
         # Get all ranks in hand
@@ -286,7 +286,7 @@ class StraightStrategy(Strategy):
 class FullHouse4CardsStrategy(Strategy):
     """Prioritizes full house hands"""
     def __init__(self):
-        super().__init__("Full House 4 Cards", ["Full House", "Four of a Kind"])
+        super().__init__("Full House 4 Cards", ["Full House", "Four of a Kind", "Straight", "Straight Flush", "Flush"])
     
     def select_play_cards(self, player):
         ranks = checkhandforranks(player.hand)
@@ -320,15 +320,7 @@ class FullHouse4CardsStrategy(Strategy):
         # If we have both components of a full house, play them
         if has_fullhouse:
             return [i for i, card in enumerate(player.hand) if card.rank == three_of_a_kind][:3] + [i for i, card in enumerate(player.hand) if card.rank == pair][:2]
-        
-        # If we have only three of a kind, play that
-        if three_of_a_kind:
-            return [i for i, card in enumerate(player.hand) if card.rank == three_of_a_kind][:3]
-        
-        # If we have only a pair, play that
-        if pair:
-            return [i for i, card in enumerate(player.hand) if card.rank == pair][:2]
-        
+
         # Fallback strategy
         return self._fallback_strategy(player)
     
