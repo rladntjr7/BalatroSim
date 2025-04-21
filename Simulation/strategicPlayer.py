@@ -96,50 +96,8 @@ class StrategicPlayer(Player):
                 print(f"{i+1}. {hand_name}: {cards} - {score} points")
         
         return {
+            
             "score": self.currentScore,
             "remainingPlaysToWin": self.remainingPlaysToWin,
             "history": self.history
         }
-    
-    def simulate_games(self, num_games=100, verbose=False):
-        """Run multiple simulations and return statistics"""
-        results = []
-        wins = 0
-        total_score = 0
-        remaining_plays = 0
-        
-        for i in range(num_games):
-            # Reset player for new game
-            self.__init__(self.strategy)
-            
-            game_result = self.play_strategically(verbose=verbose)
-            results.append(game_result)
-            
-            total_score += game_result["score"]
-            if game_result["remainingPlaysToWin"] > 0:
-                wins += 1
-                remaining_plays += game_result["remainingPlaysToWin"]
-        
-        # Calculate statistics
-        win_rate = wins / num_games
-        avg_score = total_score / num_games
-        avg_remaining_plays = remaining_plays / wins if wins > 0 else 0
-        
-        stats = {
-            "strategy": self.strategy.name,
-            "games_played": num_games,
-            "wins": wins,
-            "win_rate": win_rate,
-            "avg_score": avg_score,
-            "avg_remaining_plays": avg_remaining_plays,
-            "game_results": results
-        }
-        
-        if verbose:
-            print(f"\nStrategy: {self.strategy.name}")
-            print(f"Games: {num_games}")
-            print(f"Win rate: {win_rate:.2%}")
-            print(f"Average score: {avg_score:.2f}")
-            print(f"Average remaining plays (when won): {avg_remaining_plays:.2f}")
-        
-        return stats 
